@@ -6,10 +6,7 @@ const { toAddress, toCoordinates, autocomplete } = require("./maps");
 const { db, auth } = require("./firebase");
 const { upload, deleteImg } = require("./image");
 
-app.get("/", (req, res) => {
-  res.send("Get Started...");
-});
-
+//--------------------------------GEOCODE------------------------------------
 app.get("/api/address/:lat/:lng", async (req, res) => {
   const lat = req.params.lat;
   const lng = req.params.lng;
@@ -29,8 +26,9 @@ app.get("/api/autocomplete/:query", async (req, res) => {
   res.send({ addresses: addresses });
 });
 
+//--------------------------------FIREBASE----------------------------------------
 //firebase auth create new user
-app.get("/auth/create/:user/:pass", (req, res) => {
+app.get("/api/auth/create/:user/:pass", (req, res) => {
   const email = req.params.user;
   const password = req.params.pass;
 
@@ -47,7 +45,7 @@ app.get("/auth/create/:user/:pass", (req, res) => {
 });
 
 //firebase auth login
-app.get("/auth/login/:user/:pass", (req, res) => {
+app.get("/api/auth/login/:user/:pass", (req, res) => {
   const email = req.params.user;
   const password = req.params.pass;
   auth()
@@ -63,18 +61,18 @@ app.get("/auth/login/:user/:pass", (req, res) => {
 });
 
 //firebase real-time DB stores marker data
-app.get("/data/read/pins", async (req, res) => {
+app.get("/api/pins/all", async (req, res) => {
   const pins = db.collection("pins");
   const snapshot = await pins.get();
   const data = [];
   snapshot.forEach((doc) => {
-    data.push(doc.data());
+    data.push({ ...doc.data(), id: doc.id });
   });
   res.send(data);
 });
 
 app.get(
-  "/data/write/pins/:lat/:long/:name/:desc/:date/:address",
+  "/api/pins/create/:lat/:long/:name/:desc/:date/:address",
   async (req, res) => {
     const lat = req.params.lat;
     const long = req.params.long;
@@ -94,12 +92,37 @@ app.get(
       },
       date: date,
       address: address,
+      upvotes: [],
+      downvotes: [],
     });
 
     res.send(added.id);
   }
 );
 
+app.get("/api/pins/upvote/:pid/:uid", async (req, res) => {
+  const pid = req.params.pid;
+  const uid = req.params.uid;
+  const ref = db.collection("pins").doc(pid);
+  const doc = await ref.get();
+  const data = doc.data();
+  const upvotes = data.upvotes;
+  const downvotes = data.downvotes;
+
+  if (!upvotes.includes(pid)) {
+    if (downvotes.includes(pid)) {
+      const index = downvotes.indexOf(pid);
+      downvotes.splice(index, 1);
+    }
+    upvotes.push(pid);
+
+    const resp = await ref.set(data);
+  }
+
+  res.send("worked");
+});
+
+//------------------------------IMAGE------------------------------------------
 app.get("/api/upload/:test", async (req, res) => {
   console.log(req.params.test);
   //const image = req.body.image;
@@ -111,6 +134,12 @@ app.delete("/api/deleteImg/:hash", async (req, res) => {
   const hash = req.params.hash;
   const json = await deleteImg(hash);
   res.send(json);
+});
+
+//-----------------------------INITIALIZE--------------------------------
+
+app.get("/", (req, res) => {
+  res.send("Get Started...");
 });
 
 app.listen(process.env.PORT || 5000, () => {
