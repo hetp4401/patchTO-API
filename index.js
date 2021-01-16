@@ -122,6 +122,28 @@ app.get("/api/pins/upvote/:pid/:uid", async (req, res) => {
   res.send("worked");
 });
 
+app.get("/api/pins/downvote/:pid/:uid", async (req, res) => {
+  const pid = req.params.pid;
+  const uid = req.params.uid;
+  const ref = db.collection("pins").doc(pid);
+  const doc = await ref.get();
+  const data = doc.data();
+  const upvotes = data.upvotes;
+  const downvotes = data.downvotes;
+
+  if (!downvotes.includes(pid)) {
+    if (upvotes.includes(pid)) {
+      const index = downvotes.indexOf(pid);
+      upvotes.splice(index, 1);
+    }
+    downvotes.push(pid);
+
+    const resp = await ref.set(data);
+  }
+
+  res.send("worked");
+});
+
 //------------------------------IMAGE------------------------------------------
 app.get("/api/upload/:test", async (req, res) => {
   console.log(req.params.test);
